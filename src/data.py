@@ -1,3 +1,5 @@
+import numpy as np 
+import pandas as pd 
 def loader(df):
     missing_flags = (df==-1).add_suffix("_was_missing")
     df = df.replace(-1, np.nan)
