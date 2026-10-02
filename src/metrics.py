@@ -5,14 +5,15 @@ from matplotlib.ticker import PercentFormatter
 
 
 def norm_gini_coeff(predicted_probs, values): 
+    predicted_probs = np.asarray(predicted_probs)
+    values = np.asarray(values)
     order = np.argsort(predicted_probs)[::-1] 
     sorted_labels = values[order]
     n = len(predicted_probs)
     positives = 0
-    x = np.arange(0,1+1/n, 1/n)
+    x = np.arange(0,1, 1/n)
     true_positives = sum(k == 1 for k in values)
     L,L_perf = np.zeros(n+1), np.zeros(n+1)
-
     
     for i in range(1,n+1):
         if sorted_labels[i-1]==1:
@@ -110,11 +111,3 @@ def lorenz_plot(predicted_probs, values):
 
     plt.tight_layout()
     plt.show()
-df_test = {
-    'val':[1,0,1,0,0],
-    'pred':[.6,.5,.9,.8,.3]}
-df_test = pd.DataFrame(data=df_test)
-
-pred = df_test['pred']
-val = df_test['val']
-lorenz_plot(pred,val)

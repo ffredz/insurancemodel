@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd 
 from sklearn.model_selection import train_test_split
 
-
 def loader(df):
+    df=df.drop('id',axis=1)
     missing_flags = (df==-1).add_suffix("_was_missing")
-    df = df.replace(-1, np.nan)
+    #df = df.replace(-1, np.nan)
     df=pd.concat([df,missing_flags],axis = 1)
     return df 
 
