@@ -15,4 +15,4 @@ model.fit(df_train_X, df_train_y)
 n=model.n_iterations
 print(model.NGC[0])
 print(model.NGC[-1])
-print(norm_gini_coeff(model.predict_proba(df_val_X),df_val_y))
+print(norm_gini_coeff(model.predict_proba(df_val_X),np.asarray(df_val_y,dtype=np.float64)))

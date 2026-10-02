@@ -85,16 +85,18 @@ class LogisticRegression(BaseEstimator): #arver fra base estimator for å behold
        
     
     def predict_proba(self, X):
+        X=np.asarray(X,dtype=np.float64)
         linear_model = np.dot(X, self.weights) + self.bias 
         p=self.sigmoid(linear_model)
         return np.column_stack([1-p,p])
         
         
     def predict(self, X):
-        X=np.asarray(X)
+        X=np.asarray(X,dtype=np.float64)
         return (self.predict_proba(X)[:,1]>=.5).astype(int)
         
     
     def sigmoid(self, z):
+        z=np.asarray(z,dtype=np.float64)
         return 1/(1+np.exp(-z))
         
