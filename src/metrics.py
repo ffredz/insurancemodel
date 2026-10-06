@@ -11,7 +11,7 @@ def norm_gini_coeff(predicted_probs, values):
     sorted_labels = values[order]
     n = len(predicted_probs)
     positives = 0
-    x = np.arange(0,1, 1/n)
+    x = np.linspace(0,1,n+1)
     true_positives = sum(k == 1 for k in values)
     L,L_perf = np.zeros(n+1), np.zeros(n+1)
     
