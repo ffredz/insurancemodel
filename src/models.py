@@ -73,7 +73,7 @@ class LogisticRegression(BaseEstimator): #arver fra base estimator for å behold
                 )/np.sum(sample_weights)
             )
             self.loss_history.append(loss)
-            predictions = (y>=.5).astype(int)
+            predictions = (y_pred>=.5).astype(int)
             self.accuracies.append(
                 np.mean(predictions==y)
     
