@@ -1,12 +1,14 @@
 import numpy as np 
 from sklearn.base import BaseEstimator
-from src.metrics import norm_gini_coeff
+from metrics import norm_gini_coeff
 
 
 
 
 #egen implementasjon
 class LogisticRegression(BaseEstimator): #arver fra base estimator for å beholde litt brukbare funksjoner
+
+    
     def __init__(self, lr=0.1, n_iterations=10000, class_weight = None):
         
         self.class_weight = class_weight
@@ -99,4 +101,87 @@ class LogisticRegression(BaseEstimator): #arver fra base estimator for å behold
     def sigmoid(self, z):
         z=np.asarray(z,dtype=np.float64)
         return 1/(1+np.exp(-z))
+
+
+
+class LogisticLoss():
+    def sigmoid(self, z):
+        z =np.asarray(z,dtype=np.float64)
+        return 1/(1+np.exp(-z))
+
+    
+    def loss(self, y,z):
+        return np.logaddexp(0,z) - y*z
+
+    def grad(self, y,z):
+        y = np.asarray(y,dtype=np.float64)
+        return self.sigmoid(z)-y
+    def hess(self, y,z):
+        s=self.sigmoid(z)
+        return s*(1-s)
+    def init_score(self,y):
+        p = np.clip(np.mean(y), 1e-15,1-1e-15)
+        return np.log(p/(1-p))
+
+class SquaredLoss():
+    def loss(self, y,z):
+        return .5*(np.asarray(y,dtype=np.float64)-np.asarray(z,dtype=np.float64))**2
+    def grad(self, y,z):
+        return np.asarray(z,dtype=np.float64)-np.asarray(y,dtype=np.float64)
+    def hess(self, y,z):
+        return np.ones(len(np.asarray(z,dtype=np.float64)))
+    def init_score(self,y,z):
+        return 0
+
+
+def test_log_loss():
+    L = LogisticLoss()
+    rng = np.random.default_rng(0)
+    z = rng.normal(0,3,1000)
+    y = rng.binomial(1,0.3,1000).astype(float)
+    eps = 1e-5
+    num_grad = (L.loss(y, z+eps) - L.loss(y, z-eps)) / (2*eps)
+    num_hess = (L.grad(y, z+eps) - L.grad(y, z-eps)) / (2*eps)
+    assert np.allclose(num_grad, L.grad(y, z), atol=1e-6)
+    assert np.allclose(num_hess, L.hess(y, z), atol=1e-6)
+    assert abs(L.grad(y, np.full(len(y), L.init_score(y))).sum()) < 1e-8
+
+
+
+class Node:
+    def __init__(self, feature=None, threshold=None, left=None, right=None, value=None):
+        self.feature=feature
+        self.threshold = threshold
+        self.left = left
+        self.right = right 
+        self.value = value 
+
+    def is_leaf(self):
+        return self.value is None 
+
+
+class Tree():
+    def __init__(self, max_depth = 3, lam = 1.0, gamma = 0.0, min_child_weight = 1.0):
+        self.max_depth = max_depth
+        self.lam = lam 
+        self.gamma = gamma 
+        self.min_child_weight = min_child_weight
+
+    def _build_tree(self,X,g,h,depth):
+        if depth >= self.max_depth:
+            return Node(value=self._leaf_value(g,h))
+        #Todo finn beste splitt 
         
+    def fit(self, X,g,h):
+        X=np.asarray(X,dtype=np.float64)
+        g=np.asarray(g,dtype=np.float64)
+        h=np.asarray(h,dtype=np.float64)
+
+        self.root = self._build_tree(X,g,h,depth = 0)
+
+        return self 
+
+    def _leaf_value(self, g,h):
+        G = np.sum(g)
+        H = np.sum(h)
+        return -G/(H+self.lam)
