@@ -57,19 +57,19 @@ class Tree:
         G,H = g[idx].sum(), h[idx].sum()
         w = -G/(H+self.lam)
 
-        if depth == self.max_depth:
+        if depth >=self.max_depth:
             return Node(value=w)
 
         split = self._find_best_split(X,g,h,idx)
         if split is None:
-            return Node(value=None)
+            return Node(value=w)
 
         feature, threshold = split 
-        left_idx = idx[[X[idx,feature]<=threshold]]
-        right_idx = idx[[X[idx,feature]>threshold]]
+        left_idx = idx[X[idx,feature]<=threshold]
+        right_idx = idx[X[idx,feature]>threshold]
         return Node(feature=feature, threshold=threshold,
                     left=self._build(X,g,h,left_idx,depth+1),
-                    left=self._build(X,g,h,right_idx,depth+1))
+                    right=self._build(X,g,h,right_idx,depth+1))
 
     def _find_best_split(self, X,g,h,idx):
         G,H = g[idx].sum(), h[idx].sum()
@@ -90,17 +90,17 @@ class Tree:
             k = np.argmax(gain)
             if gain[k]>best_gain:
                 best_gain,best_feature,best_threshold = gain[k], feature, thresholds[k]
-            if best_gain>self.gamma:
-                return best_feature, best_threshold
-            return None 
+        if best_gain>self.gamma:
+            return best_feature, best_threshold
+        return None 
 
-    def _predict_node(self,node, X,g,h,idx,out):
+    def _predict_node(self,node, X,idx,out):
         if node.left is None:
             out[idx]=node.value
             return 
         go_left = X[idx,node.feature]<=node.threshold
         self._predict_node(node.left,X,idx[go_left],out) 
-        self._predict_node(node.right,X,idx[-go_left],out)
+        self._predict_node(node.right,X,idx[~go_left],out)
 
     def predict(self, X):    
         X = np.asarray(X,dtype=float)
