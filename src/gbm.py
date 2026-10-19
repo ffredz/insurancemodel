@@ -27,7 +27,7 @@ class SquaredLoss():
     def hess(self, y,z):
         return np.ones(len(np.asarray(z,dtype=np.float64)))
     def init_score(self,y):
-        return 0
+        return np.mean(y)
 
 
 
@@ -40,7 +40,7 @@ class Node:
         self.value = value 
 
     def is_leaf(self):
-        return self.value is None 
+        return self.value is not None 
 
 
 class Tree:
@@ -85,7 +85,7 @@ class Tree:
             H_R = H-H_L 
             thresholds = (xs[1:]+xs[:-1])/2
             valid = (xs[1:] > xs[:-1]) & (H_L >= self.min_child_weight) & (H_R >= self.min_child_weight)
-            gain = G_L**2/(H_L+self.lam) + G_R**2/(H_R+self.lam) -G**2/(H+self.lam)
+            gain = 0.5 * (G_L**2 / (H_L + self.lam)+ G_R**2 / (H_R + self.lam)- G**2 / (H + self.lam))
             gain = np.where(valid, gain, -np.inf)
             k = np.argmax(gain)
             if gain[k]>best_gain:
@@ -107,3 +107,155 @@ class Tree:
         out = np.zeros(len(X))
         self._predict_node(self.root, X, np.arange(len(X)),out)
         return out 
+
+
+
+class GradientBoosting():
+    def __init__(self, n_estimators, learning_rate, max_depth, lam, gamma, min_child_weight, early_stopping_rounds,objective):
+        self.n_estimators = n_estimators
+        self.learning_rate = learning_rate
+        self.max_depth = max_depth
+        self.lam = lam 
+        self.gamma = gamma 
+        self.min_child_weight = min_child_weight
+        self.early_stopping_rounds = early_stopping_rounds
+        self.objective = objective
+
+    def fit(self, X,y,eval_set=None):
+        X= np.asarray(X, dtype=float)  
+        y= np.asarray(y, dtype=float)  
+
+        #masse feilhåndtering først bare
+        if X.ndim != 2 or len(X) != len(y) or len(y)==0:
+            raise ValueError("Ugyldige dimensjoner for X og y")
+
+        if self.n_estimators<1:
+            raise ValueError("n_estimators må minst være 1")
+
+        if self.objective == "logistic":
+            self.loss = LogisticLoss()
+            if not np.all(np.isin(y,[0,1])):
+                raise ValueError("Logloss krever binærdata")
+        elif self.objective == "squared":
+            self.loss = SquaredLoss()
+        else:
+            raise ValueError("ukjent objective")
+
+        #Valideringsdata 
+
+        if eval_set is not None:
+            X_val,y_val = eval_set
+            X_val = np.asarray(X_val,dtype = np.float64)
+            y_val = np.asarray(y_val, dtype=np.float64)
+
+            if (X_val.ndim != 2
+                or X_val.shape[1] != X.shape[1]
+                or len(X_val) != len(y_val)
+                or len(y_val) == 0):
+                raise ValueError("Ugyldig eval_set")
+
+            if self.objective == "logistic":
+                if not np.all(np.isin(y_val, [0, 1])):
+                    raise ValueError("y_val må inneholde 0 og 1")
+
+            z_val = None
+        elif self.early_stopping_rounds is not None:
+            raise ValueError("Early stopping krever eval_set")
+
+        if (self.early_stopping_rounds is not None
+            and self.early_stopping_rounds < 1):
+            raise ValueError("early_stopping_rounds må være positiv")
+        #--------------------------------------------------
+
+        #faktisk initialisering
+        self.z0_ = float(self.loss.init_score(y))
+        z = np.full(len(y),self.z0_)
+
+        if eval_set is not None:
+            z_val = np.full(len(y_val),self.z0_)
+
+        self.trees_ = []
+        self.train_loss_ = []
+        self.val_loss_ = []
+
+        best_loss = np.inf 
+        best_n_trees = 0
+        rounds_without_improvement = 0
+
+        #moroa begynner 
+        for t in range(self.n_estimators):
+            #steg 1 gradienter og hessianer 
+            g = self.loss.grad(y,z)
+            h = self.loss.hess(y,z)
+
+            #2 trene nytt tre
+            tree = Tree(max_depth=self.max_depth, lam=self.lam , gamma=self.gamma, min_child_weight=self.min_child_weight)
+            tree.fit(X,g,h)
+            self.trees.append(tree)
+
+            #oppdater prediksjoner 
+            z+=self.learning_rate*tree.predict(X)
+
+            train_loss = self.loss.loss(y,z).mean()
+            self.train_loss_.append(float(train_loss))
+
+            #validering
+            if eval_set is not None:
+                z_val +=self.learning_rate*tree.predict(X_val)
+                val_loss = float(self.loss.loss(y_val,z_val).mean())
+                self.val_loss_.append(val_loss)
+                #sjekke forbedringen
+
+                if val_loss<best_loss-1e-12:
+                    best_loss = val_loss
+                    best_n_trees = len(self.trees_)
+                    rounds_without_improvement = 0
+                else:
+                    rounds_without_improvement+=1
+
+                if self.early_stopping_rounds is not None:
+                    if rounds_without_improvement>=self.early_stopping_rounds:
+                        break
+        if eval_set is not None:
+            self.best_iteration = best_n_trees-1
+            self.best_score = best_loss 
+
+            if self.early_stopping_rounds is not None:
+                self.trees_ = self.trees_[:best_n_trees]
+        else:
+            self.best_iteration = len(self.trees_)-1
+            self.best_score = self.train_loss_[-1]
+        return self 
+       
+    def predict_raw(self,X,n_trees=None):
+        if not hasattr(self, "trees_"):
+            raise RuntimeError("Modell må trenes")
+
+        X = np.asarray(X, dtype=np.float64)
+
+        if X.ndim != 2:
+            raise ValueError("X må være 2D")
+        if n_trees is None:
+            n_trees = len(self.trees_)
+        if (not isinstance(n_trees, (int, np.integer))
+            or not 0 <= n_trees <= len(self.trees_)):
+            raise ValueError("Ugyldig n_trees")
+
+        z = np.full(len(X),self.z0_)
+
+        for tree in self.trees_[:n_trees]:
+            z+= self.learning_rate*tree.predict(X)
+        return z 
+    def predict_proba(self, X,n_trees=None):
+        if self.objective != "logistic":
+            raise ValueError(
+                "predict_proba krever logistic objective"
+            )
+        z = self.predict_raw(X,n_trees)
+        p = self.loss.sigmoid(z)
+        return np.column_stack((1-p,p))
+    def predict(self,X,n_trees=None):
+        if self.objective=="logistic":
+            p = self.predict_proba(X,n_trees)[:,1]
+            return (p>=.5).astype(int)
+        return self.predict_raw(X,n_trees)
