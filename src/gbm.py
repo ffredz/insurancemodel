@@ -26,7 +26,7 @@ class SquaredLoss():
         return np.asarray(z,dtype=np.float64)-np.asarray(y,dtype=np.float64)
     def hess(self, y,z):
         return np.ones(len(np.asarray(z,dtype=np.float64)))
-    def init_score(self,y,z):
+    def init_score(self,y):
         return 0
 
 

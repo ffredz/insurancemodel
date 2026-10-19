@@ -1,4 +1,4 @@
-from gbm import LogisticLoss, SquaredLoss
+from src.gbm import LogisticLoss, SquaredLoss
 
 import numpy as np 
 
@@ -16,5 +16,5 @@ def test_log_loss():
 
 if __name__ == "__main__":
     test_log_loss()
-
     print("OK")
+
